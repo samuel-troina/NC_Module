@@ -83,3 +83,10 @@ void NC_module::join(int interval){
     sendCmd("AT+JOIN");
   }
 }
+
+void NC_module::sendMSG(bool confirm, String PORT, String MSG){
+  String cmd = "AT+SEND";
+  cmd += (confirm ? "C" : "N");
+  cmd += "="+PORT+":"+MSG;
+  sendCmd(cmd);
+}

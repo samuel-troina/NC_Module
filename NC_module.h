@@ -15,6 +15,7 @@ class NC_module {
         bool configureOTAA(String DEVEUI, String APPEUI, String APPKey);
         bool joined(int interval=10000);
         void join(int interval=30000);
+        void sendMSG(bool confirm, String PORT, String MSG);
 };
 
 #endif
