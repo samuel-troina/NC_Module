@@ -66,6 +66,18 @@ bool NC_module::configureOTAA(String DEVEUI, String APPEUI, String APPKey){
     return true;
 }
 
+bool NC_module::setSession(String DEVADDR, String NWKSKEY, String APPSKEY, String FCNTUP, String FCNTDOWN){
+  if (DEVADDR == "" || NWKSKEY== "" || APPSKEY == "")
+    return false;
+
+  if (sendCmd("AT+DEVADDR="+DEVADDR) != "OK") return false;
+  if (sendCmd("AT+NWKSKEY="+NWKSKEY) != "OK") return false;
+  if (sendCmd("AT+APPSKEY="+APPSKEY) != "OK") return false;
+  if (sendCmd("AT+FCNTUP="+FCNTUP) != "OK") return false;
+  if (sendCmd("AT+FCNTDOWN="+FCNTDOWN) != "OK") return false;
+  return true;
+}
+
 bool NC_module::joined(int interval){
   static uint32_t last_check = millis();
   static uint32_t joined = false;

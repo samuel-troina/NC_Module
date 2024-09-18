@@ -13,6 +13,7 @@ class NC_module {
         bool moduleStatus();
         bool configureLoRaWAN(String SUBBAND, String CH, String DR, String DRX2, String FQRX2, String DLRX2);
         bool configureOTAA(String DEVEUI, String APPEUI, String APPKey);
+        bool setSession(String DEVADDR, String NWKSKEY, String APPSKEY, String FCNTUP, String FCNTDOWN);
         bool joined(int interval=10000);
         void join(int interval=30000);
         void sendMSG(bool confirm, String PORT, String MSG);
