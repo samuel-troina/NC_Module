@@ -17,11 +17,11 @@ String NC_module::readSerial(){
         if (responseBuffer.endsWith("\r\n")){
           return responseBuffer.substring(0, responseBuffer.length() - 2);
         }
-    }
 
-    #if defined(ESP8266) || defined(ESP32)
-    yield();
-    #endif
+        #if defined(ESP8266) || defined(ESP32)
+        yield();
+        #endif
+    }
   }
 
   return "";
@@ -59,6 +59,20 @@ bool NC_module::configureLoRaWAN(String SUBBAND, String CH, String DR, String DR
     return true;
 }
 
+bool NC_module::configureMESH(String DEVID, String RETRIES, String TIMEOUT, String SW, String PREA, String CR){
+  if (sendCmd("AT+DEVID="+DEVID) != "OK") return false;
+  if (sendCmd("AT+RETRIES="+RETRIES) != "OK") return false;
+  if (sendCmd("AT+TIMEOUT="+TIMEOUT) != "OK") return false;
+
+  if (sendCmd("AT+SW="+SW) != "OK") return false;
+  if (sendCmd("AT+PREA="+PREA) != "OK") return false;
+  if (sendCmd("AT+CR="+CR) != "OK") return false;
+  if (sendCmd("AT+IQ=0") != "OK") return false;
+  if (sendCmd("AT+CRC=5") != "OK") return false;
+
+  return true;
+}
+
 bool NC_module::configureOTAA(String DEVEUI, String APPEUI, String APPKey){
     if (sendCmd("AT+DEVEUI="+DEVEUI) != "OK") return false;
     if (sendCmd("AT+APPEUI="+APPEUI) != "OK") return false;
@@ -79,7 +93,7 @@ bool NC_module::setSession(String DEVADDR, String NWKSKEY, String APPSKEY, Strin
 }
 
 bool NC_module::joined(int interval){
-  static uint32_t last_check = millis();
+  static uint32_t last_check = 0;
   static uint32_t joined = false;
   if (joined == false && (millis() - last_check) > 7000){
     last_check = millis();
@@ -101,4 +115,12 @@ void NC_module::sendMSG(bool confirm, String PORT, String MSG){
   cmd += (confirm ? "C" : "N");
   cmd += "="+PORT+":"+MSG;
   sendCmd(cmd);
+}
+
+void NC_module::sendMSG(bool confirm, int PORT, uint8_t* buff, uint8_t size){
+  String resultado = "";
+  for (int i = 0; i < size; i++)
+    resultado += (char)buff[i];
+
+  sendMSG(confirm, String(PORT), resultado);
 }
