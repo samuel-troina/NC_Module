@@ -4,102 +4,174 @@ void NC_module::init(Stream &serial) {
     _serial = &serial;
 }
 
-String NC_module::readSerial(){
-  String responseBuffer = "";
-  if (!_serial->available())
-    return "";
+String NC_module::readSerial() {
+    // Se não houver dados disponíveis, retorna imediatamente
+    if (!_serial->available())
+        return String();
 
-  unsigned long startTime = millis();
-  while (millis() - startTime < 200) {
-    while (_serial->available()) {
-        char c = _serial->read();
-        responseBuffer += c;
-        if (responseBuffer.endsWith("\r\n")){
-          return responseBuffer.substring(0, responseBuffer.length() - 2);
+    const int bufferSize = 256;  // Tamanho do buffer suficiente para a resposta esperada
+    char responseBuffer[bufferSize];
+    int index = 0;  // Índice para preencher o buffer
+    unsigned long startTime = millis();
+    while (millis() - startTime < 200) {
+        while (_serial->available()) {
+            char c = _serial->read();
+
+            // Verifica se ainda há espaço no buffer para armazenar o caractere
+            if (index < bufferSize - 1) {
+                responseBuffer[index++] = c;
+            }
+
+            // Verifica se o final da linha "\r\n" foi encontrado
+            if (index >= 2 && responseBuffer[index - 2] == '\r' && responseBuffer[index - 1] == '\n') {
+                responseBuffer[index - 2] = '\0';
+                return String(responseBuffer);
+            }
+
+            #if defined(ESP8266) || defined(ESP32)
+            yield();
+            #endif
+        }
+    }
+
+    return String();
+}
+
+String NC_module::sendCmd(const String& cmd, int timeout) {
+    _serial->println(cmd);
+
+    unsigned long startTime = millis();
+    while (millis() - startTime < timeout) {
+        String responseBuffer = readSerial();
+        if (responseBuffer.length() > 0) {
+            return responseBuffer;
         }
 
         #if defined(ESP8266) || defined(ESP32)
         yield();
         #endif
     }
-  }
 
-  return "";
-}
-
-String NC_module::sendCmd(String cmd, int timeout){
-  _serial->println(cmd);
-
-  String responseBuffer;
-  unsigned long startTime = millis();
-  while (millis() - startTime < timeout){
-    responseBuffer = readSerial();
-    if (responseBuffer != "")
-      return responseBuffer;
-  }
-
-  return "";
+    return "";
 }
 
 bool NC_module::moduleStatus(){
     return (sendCmd("AT+STATUS?") == "OK");
 }
 
-bool NC_module::configureLoRaWAN(String SUBBAND, String CH, String DR, String DRX2, String FQRX2, String DLRX2){
-    if (sendCmd("AT+SUBBAND="+SUBBAND) != "OK") return false;
-    if (sendCmd("AT+CHANNEL="+CH) != "OK") return false;
-    if (sendCmd("AT+DATARATE="+DR) != "OK") return false;
+bool NC_module::configureLoRaWAN(const String& TXPOWER, const String& SUBBAND, const String& CH, const String& DR, const String& DRX2, const String& FQRX2, const String& DLRX2) {
+    char cmdBuffer[64];
 
-    sendCmd("AT+TXPOWER=20");
+    snprintf(cmdBuffer, sizeof(cmdBuffer), "AT+SUBBAND=%s", SUBBAND.c_str());
+    if (sendCmd(cmdBuffer) != "OK") return false;
 
-    if (sendCmd("AT+DATARATERX2="+DRX2) != "OK") return false;
-    if (sendCmd("AT+FQRX2="+FQRX2) != "OK") return false;
-    if (sendCmd("AT+RX2DELAY="+DLRX2) != "OK") return false;
+    snprintf(cmdBuffer, sizeof(cmdBuffer), "AT+CHANNEL=%s", CH.c_str());
+    if (sendCmd(cmdBuffer) != "OK") return false;
+
+    snprintf(cmdBuffer, sizeof(cmdBuffer), "AT+DATARATE=%s", DR.c_str());
+    if (sendCmd(cmdBuffer) != "OK") return false;
+
+    snprintf(cmdBuffer, sizeof(cmdBuffer), "AT+TXPOWER=%s", TXPOWER.c_str());
+    if (sendCmd(cmdBuffer) != "OK") return false;
+
+    snprintf(cmdBuffer, sizeof(cmdBuffer), "AT+DATARATERX2=%s", DRX2.c_str());
+    if (sendCmd(cmdBuffer) != "OK") return false;
+
+    snprintf(cmdBuffer, sizeof(cmdBuffer), "AT+FQRX2=%s", FQRX2.c_str());
+    if (sendCmd(cmdBuffer) != "OK") return false;
+
+    snprintf(cmdBuffer, sizeof(cmdBuffer), "AT+RX2DELAY=%s", DLRX2.c_str());
+    if (sendCmd(cmdBuffer) != "OK") return false;
 
     return true;
 }
 
-bool NC_module::configureMESH(String DEVID, String RETRIES, String TIMEOUT, String SW, String PREA, String CR){
-  if (sendCmd("AT+DEVID="+DEVID) != "OK") return false;
-  if (sendCmd("AT+RETRIES="+RETRIES) != "OK") return false;
-  if (sendCmd("AT+TIMEOUT="+TIMEOUT) != "OK") return false;
+bool NC_module::configureMESH(const String& DEVID, const String& RETRIES, const String& TIMEOUT, const String& SW, const String& PREA, const String& CR) {
+    char cmdBuffer[64];
 
-  if (sendCmd("AT+SW="+SW) != "OK") return false;
-  if (sendCmd("AT+PREA="+PREA) != "OK") return false;
-  if (sendCmd("AT+CR="+CR) != "OK") return false;
-  if (sendCmd("AT+IQ=0") != "OK") return false;
-  if (sendCmd("AT+CRC=5") != "OK") return false;
+    snprintf(cmdBuffer, sizeof(cmdBuffer), "AT+DEVID=%s", DEVID.c_str());
+    if (sendCmd(cmdBuffer) != "OK") return false;
 
-  return true;
-}
+    snprintf(cmdBuffer, sizeof(cmdBuffer), "AT+RETRIES=%s", RETRIES.c_str());
+    if (sendCmd(cmdBuffer) != "OK") return false;
 
-bool NC_module::configureOTAA(String DEVEUI, String APPEUI, String APPKey){
-    if (sendCmd("AT+DEVEUI="+DEVEUI) != "OK") return false;
-    if (sendCmd("AT+APPEUI="+APPEUI) != "OK") return false;
-    if (sendCmd("AT+APPKey="+APPKey) != "OK") return false;
+    snprintf(cmdBuffer, sizeof(cmdBuffer), "AT+TIMEOUT=%s", TIMEOUT.c_str());
+    if (sendCmd(cmdBuffer) != "OK") return false;
+
+    snprintf(cmdBuffer, sizeof(cmdBuffer), "AT+SW=%s", SW.c_str());
+    if (sendCmd(cmdBuffer) != "OK") return false;
+
+    snprintf(cmdBuffer, sizeof(cmdBuffer), "AT+PREA=%s", PREA.c_str());
+    if (sendCmd(cmdBuffer) != "OK") return false;
+
+    snprintf(cmdBuffer, sizeof(cmdBuffer), "AT+CR=%s", CR.c_str());
+    if (sendCmd(cmdBuffer) != "OK") return false;
+
+    snprintf(cmdBuffer, sizeof(cmdBuffer), "AT+IQ=0");
+    if (sendCmd(cmdBuffer) != "OK") return false;
+
+    snprintf(cmdBuffer, sizeof(cmdBuffer), "AT+CRC=1");
+    if (sendCmd(cmdBuffer) != "OK") return false;
+
     return true;
 }
 
-bool NC_module::setSession(String DEVADDR, String NWKSKEY, String APPSKEY, String FCNTUP, String FCNTDOWN){
-  if (DEVADDR == "" || NWKSKEY== "" || APPSKEY == "")
+bool NC_module::configureOTAA(const String& DEVEUI, const String& APPEUI, const String& APPKEY){
+    char cmdBuffer[64];
+
+    snprintf(cmdBuffer, sizeof(cmdBuffer), "AT+DEVEUI=%s", DEVEUI.c_str());
+    if (sendCmd(cmdBuffer) != "OK") return false;
+
+    snprintf(cmdBuffer, sizeof(cmdBuffer), "AT+APPEUI=%s", APPEUI.c_str());
+    if (sendCmd(cmdBuffer) != "OK") return false;
+
+    snprintf(cmdBuffer, sizeof(cmdBuffer), "AT+APPKEY=%s", APPKEY.c_str());
+    if (sendCmd(cmdBuffer) != "OK") return false;
+
+    return true;
+}
+
+bool NC_module::setSession(const String& DEVADDR, const String& APPSKEY, const String& NWKSKEY, const String& FCNTUP, const String& FCNTDOWN) {
+    char cmdBuffer[64];
+
+    snprintf(cmdBuffer, sizeof(cmdBuffer), "AT+DEVADDR=%s", DEVADDR.c_str());
+    if (sendCmd(cmdBuffer) != "OK") return false;
+
+    snprintf(cmdBuffer, sizeof(cmdBuffer), "AT+APPSKEY=%s", APPSKEY.c_str());
+    if (sendCmd(cmdBuffer) != "OK") return false;
+
+    snprintf(cmdBuffer, sizeof(cmdBuffer), "AT+NWKSKEY=%s", NWKSKEY.c_str());
+    if (sendCmd(cmdBuffer) != "OK") return false;
+
+    snprintf(cmdBuffer, sizeof(cmdBuffer), "AT+FCNTUP=%s", FCNTUP.c_str());
+    if (sendCmd(cmdBuffer) != "OK") return false;
+
+    snprintf(cmdBuffer, sizeof(cmdBuffer), "AT+FCNTDOWN=%s", FCNTDOWN.c_str());
+    if (sendCmd(cmdBuffer) != "OK") return false;
+
+    return true;
+}
+
+bool NC_module::getSession(String &DEVADDR, String &APPSKEY, String &NWKSKEY, String &FCNTUP, String &FCNTDOWN){
+  DEVADDR = sendCmd("AT+DEVADDR?");
+  APPSKEY = sendCmd("AT+APPSKEY?");
+  NWKSKEY = sendCmd("AT+NWKSKEY?");
+  FCNTUP = sendCmd("AT+FCNTUP?");
+  FCNTDOWN = sendCmd("AT+FCNTDOWN?");
+
+  if (DEVADDR.length() != 8 || APPSKEY.length() != 32 || NWKSKEY.length() != 32 || FCNTUP == "" || FCNTDOWN == "")
     return false;
 
-  if (sendCmd("AT+DEVADDR="+DEVADDR) != "OK") return false;
-  if (sendCmd("AT+NWKSKEY="+NWKSKEY) != "OK") return false;
-  if (sendCmd("AT+APPSKEY="+APPSKEY) != "OK") return false;
-  if (sendCmd("AT+FCNTUP="+FCNTUP) != "OK") return false;
-  if (sendCmd("AT+FCNTDOWN="+FCNTDOWN) != "OK") return false;
   return true;
 }
 
 bool NC_module::joined(int interval){
   static uint32_t last_check = 0;
-  static uint32_t joined = false;
-  if (joined == false && (millis() - last_check) > 7000){
+  if ((last_check == 0 || (millis() - last_check) > interval)){
     last_check = millis();
-    joined = (sendCmd("AT+JOINED") == "1");
+    return sendCmd("AT+JOINED") == "1";
   }
-  return joined;
+  return false;
 }
 
 void NC_module::join(int interval){
@@ -110,17 +182,19 @@ void NC_module::join(int interval){
   }
 }
 
-void NC_module::sendMSG(bool confirm, String PORT, String MSG){
-  String cmd = "AT+SEND";
-  cmd += (confirm ? "C" : "N");
-  cmd += "="+PORT+":"+MSG;
-  sendCmd(cmd);
+void NC_module::sendMSG(bool confirm, const String& PORT, const String& MSG) {
+    char cmdBuffer[269];
+    snprintf(cmdBuffer, sizeof(cmdBuffer), "AT+SEND%c=%s:%s", confirm ? 'C' : 'N', PORT.c_str(), MSG.c_str());
+    sendCmd(cmdBuffer);
 }
 
 void NC_module::sendMSG(bool confirm, int PORT, uint8_t* buff, uint8_t size){
-  String resultado = "";
-  for (int i = 0; i < size; i++)
-    resultado += (char)buff[i];
+  char resultado[size + 1];
 
-  sendMSG(confirm, String(PORT), resultado);
+  for (int i = 0; i < size; i++)
+      resultado[i] = (char)buff[i];
+
+  resultado[size] = '\0';
+
+  sendMSG(confirm, String(PORT), String(resultado));
 }
