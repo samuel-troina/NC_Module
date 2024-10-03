@@ -38,6 +38,7 @@ String NC_module::readSerial() {
 }
 
 String NC_module::sendCmd(const String& cmd, int timeout) {
+    //Serial.println(cmd);
     _serial->println(cmd);
 
     unsigned long startTime = millis();
@@ -183,18 +184,23 @@ void NC_module::join(int interval){
 }
 
 void NC_module::sendMSG(bool confirm, const String& PORT, const String& MSG) {
-    char cmdBuffer[269];
-    snprintf(cmdBuffer, sizeof(cmdBuffer), "AT+SEND%c=%s:%s", confirm ? 'C' : 'N', PORT.c_str(), MSG.c_str());
-    sendCmd(cmdBuffer);
+    String cmd = "AT+SEND";
+    cmd += (confirm ? 'C' : 'N');
+    cmd += "=" + PORT + ":" + MSG;
+    sendCmd(cmd);
 }
 
 void NC_module::sendMSG(bool confirm, int PORT, uint8_t* buff, uint8_t size){
-  char resultado[size + 1];
+    String cmd = "AT+SEND";
+    cmd += (confirm ? 'C' : 'N');
+    cmd += "=" + String(PORT) + ":";
 
-  for (int i = 0; i < size; i++)
-      resultado[i] = (char)buff[i];
+    for (uint8_t i = 0; i < size; i++) {
+        if (buff[i] < 0x10) {
+            cmd += '0';
+        }
+        cmd += String(buff[i], HEX);
+    }
 
-  resultado[size] = '\0';
-
-  sendMSG(confirm, String(PORT), String(resultado));
+    sendCmd(cmd);
 }

@@ -10,7 +10,7 @@ const int LED_PIN = 16;
 
 // Define o pino do modo de envio das MSG
 const int MODE_PIN = 14;
-const int SEND_INTERVAL = 5; //Segundos
+const int SEND_INTERVAL = 8; //Segundos
 
 // Define o pino do botão de envio manual das MSG
 const int BNT_SEND_PIN = 2;
@@ -34,7 +34,7 @@ String modo_operacao;
 /* CallBack executado quando ocorre uma alteração nas configurações pela homepage */
 void onConfigChanged(const String& evType, ConfigManager* config) { 
   if (evType == "load"){
-    String content = MYFS::readFile("/config.json");
+    String content = MYFS::readFile("/config.json");   
     config->loadConfigFromJson(content);    
   }else if(evType == "change"){
     saveConfiguration();
@@ -85,6 +85,8 @@ void onConfigChanged(const String& evType, ConfigManager* config) {
     nc_module.configureMESH(id, retries, timeout, sw, prea, cr);
     id = ""; retries = ""; timeout = ""; sw = ""; prea = ""; cr = "";
   }  
+
+  Serial.println("Módulo parametrizado");
 }
 
 void setup() {
@@ -124,7 +126,7 @@ void setup() {
 bool sessionStarted(){
   static uint32_t joined = false;
   if (joined == false && nc_module.joined() == false){              
-    //nc_module.join();
+    nc_module.join();
     return false;
   }
   
@@ -133,23 +135,39 @@ bool sessionStarted(){
   return true;  
 }
 
-bool saveSession(){  
+bool saveSession(){    
   String DEVADDR;
   String APPSKEY;
   String NWKSKEY;
   String FCNTUP;
   String FCNTDOWN;
-  nc_module.getSession(DEVADDR, APPSKEY, NWKSKEY, FCNTUP, FCNTDOWN);
-  
+  if (nc_module.getSession(DEVADDR, APPSKEY, NWKSKEY, FCNTUP, FCNTDOWN) == false)
+    return false;
+
+  Serial.print("DEVADDR: ");
+  Serial.println(DEVADDR);
+  Serial.print("APPSKEY: ");
+  Serial.println(APPSKEY);
+  Serial.print("NWKSKEY: ");
+  Serial.println(NWKSKEY);
+  Serial.print("FCNTUP: ");
+  Serial.println(FCNTUP);
+  Serial.print("FCNTDOWN: ");
+  Serial.println(FCNTDOWN);
+    
+  /*  
   ConfigManager* config = webgui.getConfigManager();
 
-  config->setValue("DEVADDR", DEVADDR);
-  config->setValue("APPSKEY", APPSKEY);
-  config->setValue("NWKSKEY", NWKSKEY);
-  config->setValue("FCNTUP", FCNTUP);
-  config->setValue("FCNTDOWN", FCNTDOWN);
+  config->setValue("DEVADDR", DEVADDR.c_str());
+  config->setValue("APPSKEY", APPSKEY.c_str());
+  config->setValue("NWKSKEY", NWKSKEY.c_str());
+  config->setValue("FCNTUP", FCNTUP.c_str());
+  config->setValue("FCNTDOWN", FCNTDOWN.c_str());
 
-  return saveConfiguration();
+  return saveConfiguration();   
+  */
+
+  return true;
 }
 
 bool saveConfiguration(){
@@ -158,16 +176,22 @@ bool saveConfiguration(){
   uart_mod_lora.end();
   uart_mod_gps.end();
 
+  // Desabilta as interrupções (problema com salvar e as seriais)
   noInterrupts();
 
   String output;
-  config->getConfigJson(output);
-  MYFS::writeFile("/config.json", output);
+  if (config->getConfigJson(output))
+    MYFS::writeFile("/config.json", output);
   
-  interrupts();  // Habilita interrupções novamente
+  Serial.println("saveConfiguration");
+  Serial.println(output);
+
+  interrupts();  // Habilita as interrupções 
 
   uart_mod_lora.begin(9600);
   uart_mod_gps.begin(9600);
+
+  Serial.println("Configurações salvas");
 
   return true;
 }
@@ -176,21 +200,22 @@ void loop(){
   webgui.loop();
   
   if (modo_operacao == "lorawan" || modo_operacao == "lorawan_mesh"){
-    if (sessionStarted()){
-      loopAPP();
 
-      String event = nc_module.readSerial();
-      if (event.length() > 0){
-        if (event.startsWith("EVT:")) {
-          String type_event = event.substring(4);
-          if (type_event == "TX_OK" || type_event == "RX_OK" || type_event == "JOINED"){
-            saveSession();
-          }
-        }else{
-          Serial.print("Leitura da serial: ");
-          Serial.println(event);
+    String event = nc_module.readSerial();
+    if (event.length() > 0){
+      Serial.print("Leitura da serial: ");
+      Serial.println(event);
+      
+      if (event.startsWith("EVT:")) {
+        String type_event = event.substring(4);
+        if (type_event == "TX_OK" || type_event == "RX_OK" || type_event == "JOINED"){
+          saveSession();
         }
       }
+    }
+    
+    if (sessionStarted()){
+      loopAPP();
     }
   }  
 }
@@ -287,8 +312,10 @@ void loopAPP(){
     double lat = 0;
     double lng = 0;
     double alt = 0;
-    if (readGPS(lat, lng, alt)){      
+    if (readGPS(lat, lng, alt)){     
+
       lpp.addGPS(1, lat, lng, alt);
+
       nc_module.sendMSG(false, 1, lpp.getBuffer(), lpp.getSize());
 
       blinkLED(500, 1);
