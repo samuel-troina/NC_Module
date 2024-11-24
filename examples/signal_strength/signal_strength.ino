@@ -23,15 +23,15 @@ const int MODE_PIN = 21;
 const int BNT_SEND_PIN = 22;
 
 // Define os pinos RX and TX do módulo LoRA
-const int PIN_RX_LORA = 16; //4;
-const int PIN_TX_LORA = 17; //5;
+const int PIN_RX_LORA = 16;
+const int PIN_TX_LORA = 17;
 
 // Define os pinos RX and TX do módulo GPS
-const int PIN_RX_GPS = 14; 
+const int PIN_RX_GPS = 14;
 const int PIN_TX_GPS = 13;
 
 // Intervalo de envio das mensagens no modo automático
-const int SEND_INTERVAL = 10; 
+const int SEND_INTERVAL = 10;
 
 const int timeZoneOffset = -3 * 3600; // GMT-3 em segundos
 
@@ -46,10 +46,10 @@ WebGUI webgui;
 String modo_operacao;
 
 /* CallBack executado quando ocorre uma alteração nas configurações pela homepage */
-void onConfigChanged(const String& evType, ConfigManager* config) { 
+void onConfigChanged(const String& evType, ConfigManager* config) {
   if (evType == "load"){
-    String content = MYFS::readFile("/config.json");   
-    config->loadConfigFromJson(content);    
+    String content = MYFS::readFile("/config.json");
+    config->loadConfigFromJson(content);
   }else if(evType == "change"){
     saveConfiguration();
   }
@@ -60,7 +60,7 @@ void onConfigChanged(const String& evType, ConfigManager* config) {
   if (modo_operacao == "lorawan"){
     nc_module.sendCmd("AT+MODE=LORAWAN");
   }else if (modo_operacao == "lorawan_mesh"){
-    nc_module.sendCmd("AT+MODE=LORAWAN_MESH"); 
+    nc_module.sendCmd("AT+MODE=LORAWAN_MESH");
   }
 
   if (modo_operacao == "lorawan" || modo_operacao == "lorawan_mesh"){
@@ -98,14 +98,14 @@ void onConfigChanged(const String& evType, ConfigManager* config) {
     String cr = config->getValue("CR");
     nc_module.configureMESH(id, retries, timeout, sw, prea, cr);
     id = ""; retries = ""; timeout = ""; sw = ""; prea = ""; cr = "";
-  }  
+  }
 
   Serial.println("Módulo LoRaWAN parametrizado");
 }
 
-bool initSDCard(){  
+bool initSDCard(){
   spi_sd_card.begin(SDCard_SCK, SDCard_MISO, SDCard_MOSI, SDCard_CS);
-  
+
   if (!SD.begin(SDCard_CS, spi_sd_card, 1000000)) {
     Serial.println("Falha ao montar o cartão SD");
     return false;
@@ -152,14 +152,14 @@ float truncate(float value, int decimalPlaces) {
 void setup() {
   Serial.begin(115200);
   while (!Serial);
-  
-  uart_mod_lora.begin(9600, EspSoftwareSerial::SWSERIAL_8N1, PIN_RX_LORA, PIN_TX_LORA);
-  uart_mod_gps.begin(9600, EspSoftwareSerial::SWSERIAL_8N1, PIN_RX_GPS, PIN_TX_GPS);
+
+  uart_mod_lora.begin(9600, EspSoftwareSerial::SWSERIAL_8N1, PIN_TX_LORA, PIN_RX_LORA);
+  uart_mod_gps.begin(9600, EspSoftwareSerial::SWSERIAL_8N1, PIN_TX_GPS, PIN_RX_GPS);
 
   nc_module.init(uart_mod_lora);
 
   Serial.print("Comunicação com o módulo LoRa ");
-  while (nc_module.moduleStatus() == false){    
+  while (nc_module.moduleStatus() == false){
     delay(1000);
   }
   Serial.println("OK");
@@ -172,35 +172,35 @@ void setup() {
   //Inicialização do módulo SD
   while(initSDCard() == false){
     delay(1000);
-  } 
+  }
 
-  //Inicialização do webserver e websocket para definição das configurações do device  
+  //Inicialização do webserver e websocket para definição das configurações do device
   webgui.setup(onConfigChanged, true);
 
   //Inicialização do pino do LED
   pinMode(LED_PIN, OUTPUT);
   digitalWrite(LED_PIN, HIGH);
-  
+
   //Inicialização do botão seletor do modo de envio
   pinMode(MODE_PIN, INPUT_PULLUP);
 
   //Inicialização do pino de envio manual
-  pinMode(BNT_SEND_PIN, INPUT_PULLUP);  
+  pinMode(BNT_SEND_PIN, INPUT_PULLUP);
 }
 
 bool sessionStarted(){
   static uint32_t joined = false;
-  if (joined == false && nc_module.joined() == false){              
+  if (joined == false && nc_module.joined() == false){
     nc_module.join();
     return false;
   }
-  
+
   joined = true;
 
-  return true;  
+  return true;
 }
 
-bool saveSession(){    
+bool saveSession(){
   String DEVADDR;
   String APPSKEY;
   String NWKSKEY;
@@ -219,8 +219,8 @@ bool saveSession(){
   Serial.println(FCNTUP);
   Serial.print("FCNTDOWN: ");
   Serial.println(FCNTDOWN);
-    
-  /*  
+
+  /*
   ConfigManager* config = webgui.getConfigManager();
 
   config->setValue("DEVADDR", DEVADDR.c_str());
@@ -229,7 +229,7 @@ bool saveSession(){
   config->setValue("FCNTUP", FCNTUP.c_str());
   config->setValue("FCNTDOWN", FCNTDOWN.c_str());
 
-  return saveConfiguration();   
+  return saveConfiguration();
   */
 
   return true;
@@ -237,11 +237,11 @@ bool saveSession(){
 
 bool saveConfiguration(){
   ConfigManager* config = webgui.getConfigManager();
-  
+
   String output;
   if (config->getConfigJson(output))
     MYFS::writeFile("/config.json", output);
-  
+
   Serial.println("saveConfiguration");
   Serial.println(output);
 
@@ -250,16 +250,16 @@ bool saveConfiguration(){
   return true;
 }
 
-void loop(){  
+void loop(){
   webgui.loop();
-  
+
   if (modo_operacao == "lorawan" || modo_operacao == "lorawan_mesh"){
 
     String event = nc_module.readSerial();
     if (event.length() > 0){
       Serial.print("Leitura da serial: ");
       Serial.println(event);
-      
+
       if (event.startsWith("EVT:")) {
         String type_event = event.substring(4);
         if (type_event == "TX_OK" || type_event == "RX_OK" || type_event == "JOINED"){
@@ -267,16 +267,16 @@ void loop(){
         }
       }
     }
-    
+
     if (sessionStarted()){
       loopAPP();
     }
-  }  
+  }
 }
 
 void blinkLED(int interval, int times){
   do {
-    digitalWrite(LED_PIN, HIGH);    
+    digitalWrite(LED_PIN, HIGH);
     delay(interval);
     digitalWrite(LED_PIN, LOW);
     times--;
@@ -294,15 +294,15 @@ void blinkLED(int interval, int times){
 */
 bool debounce(int pin) {
   unsigned long debounceDelay = 50;
-  static int estadoBotao = HIGH;   
+  static int estadoBotao = HIGH;
   static int ultimoEstadoBotao = HIGH;
   static unsigned long ultimaLeitura = 0;
 
-  int leituraAtual = digitalRead(pin);  
+  int leituraAtual = digitalRead(pin);
   if (leituraAtual != ultimoEstadoBotao)
     ultimaLeitura = millis();
-  
-  if ((millis() - ultimaLeitura) > debounceDelay) {    
+
+  if ((millis() - ultimaLeitura) > debounceDelay) {
     if (leituraAtual != estadoBotao) {
       estadoBotao = leituraAtual;
       if (estadoBotao == LOW) {
@@ -313,7 +313,7 @@ bool debounce(int pin) {
   }
 
   ultimoEstadoBotao = leituraAtual;
-  return false; 
+  return false;
 }
 
 bool readGPS(char* sz, double& lat, double& lng, double &alt){
@@ -324,18 +324,18 @@ bool readGPS(char* sz, double& lat, double& lng, double &alt){
 
   uint8_t byte;
   uint32_t start = millis();
-  uint32_t wait = 1000;  
+  uint32_t wait = 1000;
   do {
-      while (uart_mod_gps.available()) {                        
+      while (uart_mod_gps.available()) {
         byte = uart_mod_gps.read();
         gps.encode(byte);
       }
   } while (millis() - start < wait);
 
-  if (!gps.hdop.isValid())      
+  if (!gps.hdop.isValid())
     return false;
-    
-  double hdop = gps.hdop.hdop();        
+
+  double hdop = gps.hdop.hdop();
 
   if (hdop > 0 && hdop < 5 && gps.location.isValid() && gps.altitude.isValid() && gps.date.isValid() && gps.time.isValid()){
     lat = gps.location.lat();
@@ -346,33 +346,33 @@ bool readGPS(char* sz, double& lat, double& lng, double &alt){
 
     time_t localTime = now() + timeZoneOffset;
 
-    sprintf(sz, "%04d-%02d-%02d %02d:%02d:%02d",  
-        year(localTime), 
-        month(localTime), 
-        day(localTime), 
-        hour(localTime), 
-        minute(localTime), 
+    sprintf(sz, "%04d-%02d-%02d %02d:%02d:%02d",
+        year(localTime),
+        month(localTime),
+        day(localTime),
+        hour(localTime),
+        minute(localTime),
         second(localTime));
 
     return true;
   }
-  
+
   return false;
 }
 
 void loopAPP(){
   /* Liga o LED */
-  static bool frist_time = false;  
+  static bool frist_time = false;
   if(frist_time == false){
     digitalWrite(LED_PIN, LOW);
     frist_time = true;
   }
 
   /* Procedimento para que verifica se deve ser enviada uma MSG */
-  static unsigned long last_send = 0;    
+  static unsigned long last_send = 0;
   bool sendMSG = debounce(BNT_SEND_PIN);
-  if(sendMSG == false){    
-    bool auto_send = digitalRead(MODE_PIN) == LOW;        
+  if(sendMSG == false){
+    bool auto_send = digitalRead(MODE_PIN) == LOW;
     if (auto_send == true && ((millis() - last_send) > SEND_INTERVAL * 1000)){
       last_send = millis();
       sendMSG = true;
@@ -388,7 +388,7 @@ void loopAPP(){
     double alt = 0;
     char sz[20];
 
-    if (readGPS(sz, lat, lng, alt)){     
+    if (readGPS(sz, lat, lng, alt)){
 
       lpp.addGPS(1, lat, lng, alt);
 
@@ -400,16 +400,16 @@ void loopAPP(){
 
       char filename[21];
       sprintf(filename, "/log_%s.txt", date);
-      
-      char logMessage[60];             
-      sprintf(logMessage, "%s;%.4f;%.4f;%.2f\r\n", sz, truncate(lat, 4), truncate(lng, 4), truncate(alt, 2));
-      
+
+      char logMessage[60];
+      sprintf(logMessage, "%s,,,,,,,,,,,,%.4f,%.4f,%.2f\r\n", sz, truncate(lat, 4), truncate(lng, 4), truncate(alt, 2));
+
       appendFile(filename, logMessage);
 
       blinkLED(500, 1);
     } else {
-      blinkLED(80, 5);  
+      blinkLED(80, 5);
     }
-  }  
+  }
 
 }
