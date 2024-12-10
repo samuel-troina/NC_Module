@@ -39,6 +39,10 @@ String NC_module::readSerial() {
 
 String NC_module::sendCmd(const String& cmd, int timeout) {
     //Serial.println(cmd);
+    while (_serial->available()) {
+        _serial->read();
+    }
+
     _serial->println(cmd);
 
     unsigned long startTime = millis();
