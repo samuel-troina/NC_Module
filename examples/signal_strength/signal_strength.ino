@@ -189,7 +189,7 @@ void setup() {
 }
 
 bool sessionStarted(){
-  static uint32_t joined = false;
+  static bool joined = false;
   if (joined == false && nc_module.joined() == false){
     nc_module.join();
     return false;
@@ -268,7 +268,7 @@ void loop(){
       }
     }
 
-    if (sessionStarted()){
+    if (sessionStarted()){      
       loopAPP();
     }
   }
