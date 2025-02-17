@@ -133,15 +133,34 @@ bool initSDCard(){
 }
 
 bool appendFile(const char * path_file, const char * txt){
-  File file = SD.open(path_file, FILE_APPEND);
-  if(!file){
-    Serial.println("Failed to open file for appending");
-    return false;
-  }
-  bool ret = file.print(txt);
-  file.close();
+    const int maxRetries = 5;
+    int attempt = 0;
+    File file;
 
-  return ret;
+    while (attempt < maxRetries) {
+        file = SD.open(path_file, FILE_APPEND);
+        if (file) {
+            break;
+        }
+        Serial.println("Falha ao abrir o arquivo para escrita, tentando novamente...");
+        delay(100);
+        attempt++;
+    }
+
+    if (!file) {
+        Serial.println("Erro: Não foi possível abrir o arquivo após múltiplas tentativas.");
+        return false;
+    }
+
+    bool ret = file.print(txt);
+    file.flush(); // Garante que os dados sejam escritos no cartão antes de fechar
+    file.close();
+
+    if (!ret) {
+        Serial.println("Erro ao escrever no arquivo.");
+    }
+
+    return ret;
 }
 
 float truncate(float value, int decimalPlaces) {
